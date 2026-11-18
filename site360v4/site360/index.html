@@ -1,0 +1,1476 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>URBEX — Portfolio & Photosphères</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0a0a;
+  --surface:#111111;
+  --surface2:#181818;
+  --surface3:#202020;
+  --border:#2a2a2a;
+  --border2:#333;
+  --rust:#b84a1a;
+  --rust-h:#d4612a;
+  --rust-dim:#7a3010;
+  --concrete:#8a8a7a;
+  --concrete-dim:#555548;
+  --text:#d4cfc8;
+  --text-dim:#8a8478;
+  --danger:#c0392b;
+  --gold:#c8a84a;
+  --header-h:54px;
+}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;font-size:13px;display:flex;flex-direction:column}
+
+/* ══ GRAIN TEXTURE overlay ══ */
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:9999;opacity:.025;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size:128px}
+
+/* ══ HEADER ══ */
+#header{height:var(--header-h);background:var(--surface);border-bottom:2px solid var(--rust-dim);
+  display:flex;align-items:center;padding:0 20px;gap:14px;flex-shrink:0;z-index:200}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;cursor:pointer}
+.logo-icon{width:32px;height:32px;position:relative;flex-shrink:0}
+.logo-icon svg{width:32px;height:32px}
+.logo-text{font-size:18px;font-weight:900;letter-spacing:.18em;text-transform:uppercase;color:var(--text)}
+.logo-text span{color:var(--rust)}
+.logo-sub{font-size:9px;letter-spacing:.3em;text-transform:uppercase;color:var(--concrete-dim);margin-top:-2px}
+
+/* nav mode tabs */
+.nav-tabs{display:flex;gap:2px;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:2px}
+.nav-tab{padding:5px 14px;border-radius:4px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;color:var(--text-dim);transition:.15s;border:none;background:none}
+.nav-tab:hover{color:var(--text)}
+.nav-tab.active{background:var(--rust);color:#fff}
+
+.hsep{flex:1}
+.hbtn{background:var(--surface2);border:1px solid var(--border2);color:var(--text-dim);padding:5px 12px;border-radius:5px;font-size:11px;cursor:pointer;transition:.15s;white-space:nowrap;display:flex;align-items:center;gap:5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase}
+.hbtn:hover{background:var(--surface3);border-color:var(--rust);color:var(--rust-h)}
+.hbtn.rust{background:var(--rust-dim);border-color:var(--rust);color:#e0a070}
+.hbtn.rust:hover{background:var(--rust);color:#fff}
+input[type=file]{display:none}
+
+/* ══ PAGES ══ */
+.page{display:none;flex:1;overflow:hidden}
+.page.active{display:flex}
+
+/* ══════════════════════════════════════════
+   PAGE PORTFOLIO
+══════════════════════════════════════════ */
+#page-portfolio{flex-direction:row}
+
+/* Sidebar arborescence */
+#tree-sidebar{width:260px;flex-shrink:0;background:var(--surface);border-right:2px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+#tree-header{padding:14px 14px 10px;border-bottom:1px solid var(--border);flex-shrink:0}
+#tree-header h2{font-size:11px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:var(--rust);margin-bottom:10px}
+.add-cat-btn{width:100%;background:none;border:1px dashed var(--border2);color:var(--text-dim);padding:6px;border-radius:5px;cursor:pointer;font-size:11px;transition:.15s;text-align:center}
+.add-cat-btn:hover{border-color:var(--rust);color:var(--rust-h)}
+#tree-body{flex:1;overflow-y:auto;padding:8px}
+#tree-body::-webkit-scrollbar{width:4px}
+#tree-body::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+/* Catégorie */
+.cat-node{margin-bottom:4px}
+.cat-header{display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:6px;cursor:pointer;transition:.15s;user-select:none}
+.cat-header:hover{background:var(--surface2)}
+.cat-arrow{font-size:9px;color:var(--text-dim);transition:transform .2s;flex-shrink:0}
+.cat-arrow.open{transform:rotate(90deg)}
+.cat-icon{font-size:14px;flex-shrink:0}
+.cat-name{flex:1;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--concrete)}
+.cat-count{font-size:10px;color:var(--text-dim);background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:1px 6px}
+.cat-actions{display:none;gap:3px}
+.cat-header:hover .cat-actions{display:flex}
+.tree-action{background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:12px;padding:2px 4px;border-radius:3px;transition:.15s}
+.tree-action:hover{color:var(--rust-h);background:var(--surface3)}
+
+/* Sous-catégorie (lieu) */
+.cat-children{display:none;padding-left:14px;margin-top:2px}
+.cat-children.open{display:block}
+.loc-item{display:flex;align-items:center;gap:6px;padding:5px 8px;border-radius:5px;cursor:pointer;transition:.15s;border-left:2px solid transparent}
+.loc-item:hover{background:var(--surface2);border-left-color:var(--border2)}
+.loc-item.active{background:var(--surface3);border-left-color:var(--rust);color:var(--text)}
+.loc-dot{width:6px;height:6px;border-radius:50%;background:var(--concrete-dim);flex-shrink:0}
+.loc-item.active .loc-dot{background:var(--rust)}
+.loc-name{flex:1;font-size:11px;color:var(--text-dim);transition:.15s}
+.loc-item:hover .loc-name,.loc-item.active .loc-name{color:var(--text)}
+.loc-pcount{font-size:9px;color:var(--text-dim)}
+.loc-actions{display:none;gap:2px}
+.loc-item:hover .loc-actions{display:flex}
+
+/* Main portfolio area */
+#portfolio-main{flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
+#portfolio-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;color:var(--text-dim)}
+#portfolio-empty .pe-icon{font-size:56px;opacity:.2}
+#portfolio-empty p{font-size:14px;opacity:.4;text-align:center;line-height:1.6}
+
+/* Vue d'un lieu */
+#loc-view{flex:1;display:none;flex-direction:column;overflow:hidden}
+#loc-view.on{display:flex}
+
+/* En-tête du lieu */
+#loc-header{padding:18px 24px 14px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--surface)}
+.loc-breadcrumb{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--rust);margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.loc-breadcrumb span{color:var(--text-dim)}
+#loc-title{font-size:22px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:var(--text);margin-bottom:4px}
+.loc-meta-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.loc-date{font-size:11px;color:var(--text-dim);display:flex;align-items:center;gap:4px}
+.loc-tags{display:flex;gap:5px;flex-wrap:wrap}
+.loc-tag{background:var(--surface2);border:1px solid var(--border2);color:var(--concrete-dim);border-radius:3px;padding:2px 7px;font-size:10px;letter-spacing:.06em}
+
+/* Tabs d'un lieu */
+.loc-tabs{display:flex;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0}
+.loc-tab{padding:10px 18px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;color:var(--text-dim);border-bottom:2px solid transparent;transition:.15s}
+.loc-tab:hover{color:var(--text)}
+.loc-tab.active{color:var(--rust);border-bottom-color:var(--rust)}
+
+.loc-tab-panel{display:none;flex:1;overflow:hidden}
+.loc-tab-panel.active{display:flex}
+
+/* Galerie photos */
+#gallery-wrap{flex:1;overflow-y:auto;padding:16px}
+#gallery-wrap::-webkit-scrollbar{width:5px}
+#gallery-wrap::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+
+/* Zone texte description */
+#text-wrap{flex:1;overflow-y:auto;padding:20px 24px}
+#text-wrap::-webkit-scrollbar{width:5px}
+#text-wrap::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+#loc-desc{width:100%;min-height:160px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:14px;font-size:13px;line-height:1.7;resize:vertical;outline:none;font-family:inherit;transition:.15s}
+#loc-desc:focus{border-color:var(--rust)}
+.desc-hint{font-size:10px;color:var(--text-dim);margin-top:6px;letter-spacing:.04em}
+.loc-meta-edit{display:flex;flex-direction:column;gap:10px;margin-bottom:16px}
+.meta-field{display:flex;flex-direction:column;gap:4px}
+.meta-field label{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--rust);font-weight:700}
+.meta-input{background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:7px 10px;font-size:12px;outline:none;transition:.15s;width:100%;font-family:inherit}
+.meta-input:focus{border-color:var(--rust)}
+
+/* Galerie grille */
+.gallery-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px}
+.gallery-card{position:relative;aspect-ratio:4/3;border-radius:6px;overflow:hidden;cursor:pointer;background:var(--surface2);border:1px solid var(--border);transition:.2s}
+.gallery-card:hover{border-color:var(--rust);transform:scale(1.02)}
+.gallery-card img{width:100%;height:100%;object-fit:cover;display:block;filter:saturate(.7) brightness(.85);transition:.2s}
+.gallery-card:hover img{filter:saturate(.9) brightness(1)}
+.gallery-card .gc-del{position:absolute;top:5px;right:5px;background:rgba(0,0,0,.7);border:none;color:#e05c5c;width:22px;height:22px;border-radius:4px;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;opacity:0;transition:.15s}
+.gallery-card:hover .gc-del{opacity:1}
+.gallery-card .gc-del:hover{background:rgba(192,57,43,.8)}
+
+/* Zone upload galerie */
+.gallery-upload{border:2px dashed var(--border2);border-radius:8px;padding:20px;text-align:center;cursor:pointer;color:var(--text-dim);font-size:12px;transition:.2s;margin-bottom:12px}
+.gallery-upload:hover,.gallery-upload.drag{border-color:var(--rust);background:rgba(184,74,26,.04);color:var(--rust-h)}
+.gallery-upload .gu-icon{font-size:24px;margin-bottom:6px}
+
+/* ══ LIGHTBOX ══ */
+#lightbox{position:fixed;inset:0;background:rgba(0,0,0,.95);z-index:1000;display:none;align-items:center;justify-content:center;flex-direction:column}
+#lightbox.on{display:flex}
+#lb-img{max-width:90vw;max-height:85vh;object-fit:contain;border-radius:4px}
+#lb-close{position:absolute;top:16px;right:20px;background:none;border:none;color:var(--text-dim);font-size:28px;cursor:pointer;transition:.15s}
+#lb-close:hover{color:var(--rust-h)}
+#lb-nav{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);display:flex;gap:10px;align-items:center}
+.lb-nav-btn{background:var(--surface);border:1px solid var(--border2);color:var(--text-dim);padding:6px 16px;border-radius:5px;cursor:pointer;font-size:13px;transition:.15s}
+.lb-nav-btn:hover{border-color:var(--rust);color:var(--rust-h)}
+#lb-counter{font-size:11px;color:var(--text-dim);min-width:60px;text-align:center}
+
+/* ══ PAGE 360 ══ */
+#page-360{flex-direction:column}
+#p360-toolbar{background:var(--surface);border-bottom:1px solid var(--border);padding:8px 14px;display:flex;align-items:center;gap:8px;flex-shrink:0}
+#p360-toolbar span{font-size:11px;color:var(--text-dim)}
+#p360-body{flex:1;display:flex;overflow:hidden}
+#p360-sidebar{width:250px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+#p360-list{flex:1;overflow-y:auto;padding:6px}
+#p360-list::-webkit-scrollbar{width:4px}
+#p360-list::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+.p360-item{display:flex;align-items:center;gap:7px;padding:6px 8px;border-radius:7px;cursor:pointer;border:1px solid transparent;transition:.15s}
+.p360-item:hover{background:var(--surface2);border-color:var(--border2)}
+.p360-item.active{background:#1a1208;border-color:var(--rust)}
+.p360-thumb{width:46px;height:30px;border-radius:4px;object-fit:cover;flex-shrink:0;filter:saturate(.6)}
+.p360-info{flex:1;min-width:0}
+.p360-name{font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
+.p360-loc{font-size:10px;color:var(--text-dim);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.p360-del{opacity:0;background:none;border:none;color:var(--danger);cursor:pointer;padding:2px 4px;font-size:12px;border-radius:3px;flex-shrink:0}
+.p360-item:hover .p360-del{opacity:1}
+#p360-right{flex:1;display:flex;flex-direction:column;overflow:hidden}
+#viewer-wrap{flex:1;position:relative;overflow:hidden;background:#050505;cursor:grab}
+#viewer-wrap:active{cursor:grabbing}
+#viewer-cv{position:absolute;inset:0}
+#viewer-cv canvas{display:block;width:100%!important;height:100%!important}
+#viewer-empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:var(--text-dim);pointer-events:none}
+#viewer-empty .ve-icon{font-size:50px;opacity:.2}
+#viewer-empty p{font-size:13px;opacity:.35;text-align:center;line-height:1.5}
+#viewer-loader{position:absolute;inset:0;background:rgba(5,5,5,.88);backdrop-filter:blur(4px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;z-index:10;opacity:0;pointer-events:none;transition:opacity .2s}
+#viewer-loader.on{opacity:1;pointer-events:all}
+.spinner{width:28px;height:28px;border:3px solid var(--border2);border-top-color:var(--rust);border-radius:50%;animation:spin .65s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#viewer-info{position:absolute;top:10px;left:10px;background:rgba(10,10,10,.9);border:1px solid var(--border2);border-left:2px solid var(--rust);border-radius:7px;padding:7px 11px;z-index:5;opacity:0;transition:opacity .25s;max-width:200px}
+#viewer-info.on{opacity:1}
+.vi-name{font-size:12px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.04em}
+.vi-loc{font-size:10px;color:var(--rust);margin-top:2px;letter-spacing:.06em}
+#vctrl{position:absolute;top:10px;right:10px;display:flex;flex-direction:column;gap:5px;z-index:5;opacity:0;transition:opacity .25s}
+#vctrl.on{opacity:1}
+.vc{background:rgba(10,10,10,.9);border:1px solid var(--border2);color:var(--text-dim);width:32px;height:32px;border-radius:6px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:.15s}
+.vc:hover{border-color:var(--rust);color:var(--rust-h)}
+#vhud{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);background:rgba(10,10,10,.9);border:1px solid var(--border2);border-radius:8px;padding:5px 12px;font-size:10px;color:var(--text-dim);display:flex;gap:10px;z-index:5;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap;letter-spacing:.04em}
+#vhud.on{opacity:1}
+#map-panel{height:190px;flex-shrink:0;border-top:1px solid var(--border);position:relative}
+#map{width:100%;height:100%}
+.leaflet-tile{filter:brightness(.55) saturate(.3) contrast(1.1)}
+.leaflet-container{background:#0a0a0a}
+.leaflet-popup-content-wrapper{background:var(--surface)!important;color:var(--text)!important;border:1px solid var(--border2)!important;border-radius:7px!important;font-size:11px!important;box-shadow:0 4px 16px rgba(0,0,0,.7)!important}
+.leaflet-popup-tip{background:var(--surface)!important}
+.leaflet-popup-close-button{color:var(--text-dim)!important}
+
+/* ══ MODAL ══ */
+#modal-ov{position:fixed;inset:0;background:rgba(0,0,0,.8);backdrop-filter:blur(4px);z-index:2000;display:none;align-items:center;justify-content:center}
+#modal-ov.on{display:flex}
+#modal-box{background:var(--surface);border:1px solid var(--border2);border-top:2px solid var(--rust);border-radius:10px;padding:22px;width:340px;box-shadow:0 20px 60px rgba(0,0,0,.8)}
+#modal-box h3{font-size:13px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--rust);margin-bottom:14px}
+.m-field{margin-bottom:10px}
+.m-field label{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--text-dim);margin-bottom:4px;font-weight:700}
+.m-field input,.m-field select{width:100%;background:var(--bg);border:1px solid var(--border2);color:var(--text);border-radius:6px;padding:7px 9px;font-size:12px;outline:none;transition:.15s;font-family:inherit}
+.m-field input:focus,.m-field select:focus{border-color:var(--rust)}
+.m-field select option{background:var(--surface)}
+.m-btns{display:flex;gap:7px;margin-top:16px}
+.m-btns .hbtn{flex:1;justify-content:center;padding:7px}
+
+/* ══ TOAST ══ */
+#toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%) translateY(14px);background:var(--surface);border:1px solid var(--border2);border-left:2px solid var(--rust);border-radius:7px;padding:8px 16px;font-size:12px;z-index:3000;opacity:0;transition:.25s;pointer-events:none}
+#toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ══ DRAG GLOBAL ══ */
+#gdrop{position:fixed;inset:0;z-index:1500;background:rgba(184,74,26,.08);border:3px dashed var(--rust);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:var(--rust);letter-spacing:.1em;pointer-events:none;opacity:0;transition:opacity .2s;text-transform:uppercase}
+#gdrop.on{opacity:1}
+
+/* ── Mode lecture seule (site public) ── */
+body.ro #header-actions-portfolio, body.ro #header-actions-360, body.ro .add-cat-btn,
+body.ro .cat-actions, body.ro .loc-actions, body.ro .gallery-upload, body.ro .gc-del,
+body.ro .p360-del, body.ro #p360-toolbar label, body.ro #save-ind, body.ro .loc-meta-edit,
+body.ro .desc-hint, body.ro .ltab-note, body.ro .ro-hide{display:none!important}
+body.nomap #map-panel{display:none}
+.loc-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.loc-pcount{white-space:nowrap}
+@media (max-width:760px){
+  #header{flex-wrap:wrap;height:auto;padding:8px 10px;gap:8px}
+  .logo-sub{display:none}
+  #page-portfolio.active{flex-direction:column}
+  #tree-sidebar{width:100%;max-height:34vh;border-right:none;border-bottom:2px solid var(--border)}
+  #p360-body{flex-direction:column}
+  #p360-sidebar{width:100%;max-height:26vh;border-right:none;border-bottom:1px solid var(--border)}
+  #page-portfolio.active{overflow-y:auto}
+  #portfolio-main,#loc-view,.loc-tab-panel{overflow:visible}
+  #ltab-360-inner #viewer-wrap{flex:none;height:56vh}
+}
+
+/* ── Visionneuse intégrée au lieu ── */
+#ltab-360-inner{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0}
+#ltab-360-inner #viewer-wrap{flex:1;min-height:0}
+#loc-360-strip{flex-shrink:0;display:none;gap:8px;overflow-x:auto;padding:8px 10px;background:var(--surface);border-top:1px solid var(--border)}
+.strip-item{flex:0 0 auto;width:112px;cursor:pointer;border:1px solid var(--border);border-radius:6px;overflow:hidden;opacity:.65;transition:.15s;background:var(--surface2)}
+.strip-item img{display:block;width:100%;height:68px;object-fit:cover}
+.strip-item span{display:block;font-size:10px;padding:3px 6px;color:var(--text-dim);white-space:nowrap}
+.strip-item:hover{opacity:1}
+.strip-item.active{opacity:1;border-color:var(--rust)}
+body.ro #ntab-360{display:none!important}
+
+/* ── Protection des images (dissuasive) ── */
+body.ro img, body.ro canvas{-webkit-user-drag:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+body.ro #viewer-wrap{-webkit-touch-callout:none;user-select:none;-webkit-user-select:none}
+</style>
+</head>
+<body>
+
+<!-- ═══ HEADER ═══ -->
+<div id="header">
+  <div class="logo" onclick="showPage('portfolio')">
+    <div class="logo-icon">
+      <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="2" y="2" width="28" height="28" rx="2" stroke="#b84a1a" stroke-width="1.5"/>
+        <rect x="6" y="6" width="8" height="8" fill="#b84a1a" opacity=".7"/>
+        <rect x="18" y="6" width="8" height="8" fill="#555548" opacity=".5"/>
+        <rect x="6" y="18" width="8" height="8" fill="#555548" opacity=".5"/>
+        <rect x="18" y="18" width="8" height="8" fill="#b84a1a" opacity=".4"/>
+      </svg>
+    </div>
+    <div>
+      <div class="logo-text">URB<span>EX</span></div>
+      <div class="logo-sub">Portfolio & Exploration</div>
+    </div>
+  </div>
+
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="showPage('portfolio')" id="ntab-portfolio">📂 Portfolio</button>
+    <button class="nav-tab" onclick="showPage('360')" id="ntab-360">◉ Visionneuse 360°</button>
+  </div>
+
+  <div class="hsep"></div>
+
+  <!-- Actions contextuelles -->
+  <div id="header-actions-portfolio" style="display:flex;gap:7px;align-items:center">
+    <button class="hbtn rust" onclick="openAddCat()">＋ Catégorie</button>
+    <button class="hbtn" onclick="openAddLoc()" id="btn-add-loc" disabled>＋ Lieu</button>
+    <button class="hbtn" onclick="clearAllData()" title="Tout effacer" style="border-color:#c0392b;color:#c0392b">🗑</button>
+  </div>
+  <div id="header-actions-360" style="display:none;gap:7px;align-items:center">
+    <label class="hbtn rust" for="fi-360">＋ Photosphère 360°</label>
+    <input type="file" id="fi-360" accept="image/*" multiple>
+  </div>
+  <div id="save-ind" style="font-size:10px;color:var(--rust);letter-spacing:.08em;opacity:0;transition:opacity .4s;flex-shrink:0;font-weight:700">💾 Sauvegardé</div>
+</div>
+
+<!-- ═══ PAGES ═══ -->
+
+<!-- PAGE PORTFOLIO -->
+<div class="page active" id="page-portfolio">
+
+  <!-- Arbre catégories -->
+  <div id="tree-sidebar">
+    <div id="tree-header">
+      <h2>Lieux explorés</h2>
+      <button class="add-cat-btn" onclick="openAddCat()">＋ Nouvelle catégorie</button>
+    </div>
+    <div id="tree-body">
+      <div id="tree-empty" style="padding:20px 10px;text-align:center;color:var(--text-dim);font-size:11px;line-height:1.7;opacity:.6">
+        Crée ta première<br>catégorie pour commencer
+      </div>
+    </div>
+  </div>
+
+  <!-- Zone principale portfolio -->
+  <div id="portfolio-main">
+    <div id="portfolio-empty">
+      <div class="pe-icon">🏚</div>
+      <p>Sélectionne un lieu dans l'arborescence<br>ou crée une nouvelle catégorie</p>
+    </div>
+
+    <!-- Vue d'un lieu -->
+    <div id="loc-view" style="display:none">
+      <div id="loc-header">
+        <div class="loc-breadcrumb" id="loc-breadcrumb"></div>
+        <div id="loc-title">—</div>
+        <div class="loc-meta-row">
+          <div class="loc-date" id="loc-date-display"></div>
+          <div class="loc-tags" id="loc-tags-display"></div>
+        </div>
+      </div>
+
+      <div class="loc-tabs">
+        <div class="loc-tab active" data-ltab="gallery">📷 Photos</div>
+        <div class="loc-tab" data-ltab="text">📝 Description</div>
+        <div class="loc-tab" data-ltab="360">◉ 360°</div>
+      </div>
+
+      <!-- Galerie -->
+      <div class="loc-tab-panel active" id="ltab-gallery">
+        <div id="gallery-wrap">
+          <div class="gallery-upload" id="gallery-drop">
+            <div class="gu-icon">📷</div>
+            <div>Glisser des photos ici ou <u style="cursor:pointer" onclick="document.getElementById('fi-gallery').click()">cliquer pour sélectionner</u></div>
+          </div>
+          <input type="file" id="fi-gallery" accept="image/*" multiple>
+          <div class="gallery-grid" id="gallery-grid"></div>
+        </div>
+      </div>
+
+      <!-- Texte -->
+      <div class="loc-tab-panel" id="ltab-text">
+        <div id="text-wrap">
+          <div class="loc-meta-edit">
+            <div class="meta-field">
+              <label>Nom du lieu</label>
+              <input type="text" class="meta-input" id="edit-name" placeholder="Ex: Hôpital Saint-Nicolas">
+            </div>
+            <div class="meta-field">
+              <label>Date de visite</label>
+              <input type="month" class="meta-input" id="edit-date">
+            </div>
+            <div class="meta-field">
+              <label>Tags (séparés par des virgules)</label>
+              <input type="text" class="meta-input" id="edit-tags" placeholder="abandonné, médical, années 60">
+            </div>
+          </div>
+          <div class="meta-field">
+            <label>Description / Histoire du lieu</label>
+            <textarea id="loc-desc" placeholder="Raconte l'histoire de ce lieu, tes impressions, les conditions de la visite…"></textarea>
+            <div class="desc-hint">Le texte est sauvegardé automatiquement</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 360 dans un lieu -->
+      <div class="loc-tab-panel" id="ltab-360">
+        <div id="ltab-360-inner">
+      <div id="viewer-wrap">
+        <div id="viewer-cv"></div>
+        <div id="viewer-empty">
+          <div class="ve-icon">◉</div>
+          <p>Sélectionne une photosphère<br>dans la liste</p>
+        </div>
+        <div id="viewer-loader"><div class="spinner"></div><span style="font-size:11px;color:var(--text-dim)">Chargement…</span></div>
+        <div id="viewer-info"><div class="vi-name" id="vi-name">—</div><div class="vi-loc" id="vi-loc"></div></div>
+        <div id="vctrl">
+          <button class="vc" id="vc-reset" title="Réinitialiser">↺</button>
+          <button class="vc" id="vc-fs" title="Plein écran">⛶</button>
+        </div>
+        <div id="vhud">
+          <span>🖱 Glisser · 🔍 Molette</span>
+        </div>
+      </div>
+          <div id="loc-360-strip"></div>
+          <input type="file" id="fi-loc360" accept="image/*" multiple>
+        </div>
+      </div>
+
+    </div><!-- /loc-view -->
+  </div><!-- /portfolio-main -->
+</div><!-- /page-portfolio -->
+
+<!-- PAGE 360 -->
+<div class="page" id="page-360">
+  <div id="p360-toolbar">
+    <span>Photosphères 360° — toutes catégories</span>
+    <div style="flex:1"></div>
+    <label class="hbtn rust" for="fi-360b">＋ Ajouter</label>
+    <input type="file" id="fi-360b" accept="image/*" multiple>
+  </div>
+  <div id="p360-body">
+    <div id="p360-sidebar">
+      <div id="p360-list">
+        <div id="p360-empty" style="padding:20px 12px;text-align:center;color:var(--text-dim);font-size:11px;line-height:1.7;opacity:.5">Aucune photosphère<br>ajoutée pour l'instant</div>
+      </div>
+    </div>
+    <div id="p360-right">
+      <div id="map-panel"><div id="map"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- LIGHTBOX -->
+<div id="lightbox">
+  <button id="lb-close" onclick="closeLB()">✕</button>
+  <img id="lb-img" src="" alt="">
+  <div id="lb-nav">
+    <button class="lb-nav-btn" onclick="lbNav(-1)">← Préc.</button>
+    <span id="lb-counter"></span>
+    <button class="lb-nav-btn" onclick="lbNav(1)">Suiv. →</button>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div id="modal-ov">
+  <div id="modal-box">
+    <h3 id="modal-title">Nouvelle catégorie</h3>
+    <div id="modal-body"></div>
+    <div class="m-btns">
+      <button class="hbtn" onclick="closeModal()">Annuler</button>
+      <button class="hbtn rust" id="modal-ok">Créer</button>
+    </div>
+  </div>
+</div>
+
+<div id="gdrop">⊕ Déposer ici</div>
+<div id="toast"></div>
+
+<!-- LIBS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/exifr@7.1.3/dist/full.umd.js"></script>
+
+<script>
+'use strict';
+const READONLY = true; // true = site public (lecture seule) ; false = mode édition
+
+/* ════════════════════════════════════════════
+   ÉTAT
+════════════════════════════════════════════ */
+// categories: [{id, name, icon, children:[{id, catId, name, date, tags, desc, photos:[{id,url,thumb}], spheres:[{id,url,thumb,name,lat,lng,locName}]}]}]
+const DB = { cats:[], uid:0 };
+let activeLoc = null; // {catId, locId}
+let lbImages=[], lbIndex=0;
+
+/* ════════════════════════════════════════════
+   PAGES
+════════════════════════════════════════════ */
+function showPage(p){
+  document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));
+  document.getElementById('page-'+p).classList.add('active');
+  document.querySelectorAll('.nav-tab').forEach(x=>x.classList.remove('active'));
+  document.getElementById('ntab-'+p).classList.add('active');
+  document.getElementById('header-actions-portfolio').style.display = p==='portfolio'?'flex':'none';
+  document.getElementById('header-actions-360').style.display     = p==='360'?'flex':'none';
+  if(p==='360')setTimeout(()=>map.invalidateSize(),80);
+}
+
+/* ════════════════════════════════════════════
+   CATÉGORIES & LIEUX
+════════════════════════════════════════════ */
+const CAT_ICONS = {
+  'Usine':'🏭','Hôpital':'🏥','Maison':'🏚','Château':'🏰',
+  'École':'🏫','Hôtel':'🏨','Église':'⛪','Prison':'⛓',
+  'Bunker':'🛡','Mine':'⛏','Autre':'📦'
+};
+
+function getCat(id){return DB.cats.find(c=>c.id===id);}
+function getLoc(catId,locId){return getCat(catId)?.children.find(l=>l.id===locId);}
+function getCurrentLoc(){if(!activeLoc)return null;return getLoc(activeLoc.catId,activeLoc.locId);}
+
+/* ── Modal helpers ── */
+function openModal(title, bodyHTML, okLabel, onOk){
+  document.getElementById('modal-title').textContent=title;
+  document.getElementById('modal-body').innerHTML=bodyHTML;
+  document.getElementById('modal-ok').textContent=okLabel;
+  document.getElementById('modal-ok').onclick=onOk;
+  document.getElementById('modal-ov').classList.add('on');
+}
+function closeModal(){document.getElementById('modal-ov').classList.remove('on');}
+
+/* ── Ajout catégorie ── */
+function openAddCat(){
+  const opts=Object.keys(CAT_ICONS).map(k=>`<option value="${k}">${CAT_ICONS[k]} ${k}</option>`).join('');
+  openModal('Nouvelle catégorie',`
+    <div class="m-field"><label>Type de lieu</label>
+      <select id="m-cat-type">${opts}</select></div>
+    <div class="m-field"><label>Nom personnalisé (optionnel)</label>
+      <input id="m-cat-name" placeholder="Ex: Usines du Nord"></div>`,
+    'Créer',()=>{
+      const type=document.getElementById('m-cat-type').value;
+      const name=document.getElementById('m-cat-name').value.trim()||type;
+      DB.cats.push({id:DB.uid++, name, icon:CAT_ICONS[type]||'📦', children:[]});
+      renderTree(); closeModal();
+      document.getElementById('btn-add-loc').disabled=false;
+      toast('✅ Catégorie créée');
+    });
+}
+
+/* ── Ajout lieu ── */
+function openAddLoc(catId=null){
+  if(!DB.cats.length){toast('⚠ Crée d\'abord une catégorie');return;}
+  const catOpts=DB.cats.map(c=>`<option value="${c.id}" ${c.id===catId?'selected':''}>${c.icon} ${c.name}</option>`).join('');
+  openModal('Nouveau lieu',`
+    <div class="m-field"><label>Catégorie</label><select id="m-loc-cat">${catOpts}</select></div>
+    <div class="m-field"><label>Nom du lieu</label><input id="m-loc-name" placeholder="Ex: Château de Lunéville"></div>
+    <div class="m-field"><label>Date de visite</label><input type="month" id="m-loc-date"></div>`,
+    'Créer',()=>{
+      const cid=parseInt(document.getElementById('m-loc-cat').value);
+      const name=document.getElementById('m-loc-name').value.trim();
+      const date=document.getElementById('m-loc-date').value;
+      if(!name){toast('⚠ Nom requis');return;}
+      const cat=getCat(cid);if(!cat)return;
+      const loc={id:DB.uid++,catId:cid,name,date,tags:[],desc:'',photos:[],spheres:[]};
+      cat.children.push(loc);
+      renderTree(); closeModal();
+      selectLoc(cid, loc.id);
+      toast('✅ Lieu créé');
+    });
+}
+
+function deleteCat(id){
+  if(!confirm('Supprimer cette catégorie et tous ses lieux ?'))return;
+  const c=getCat(id);
+  c?.children.forEach(l=>{
+    l.spheres.forEach(s=>{const i=spheres360.findIndex(x=>x.id===s.id);if(i>=0){if(spheres360[i].marker)map.removeLayer(spheres360[i].marker);spheres360.splice(i,1);}});
+  });
+  DB.cats.splice(DB.cats.findIndex(c=>c.id===id),1);
+  if(activeLoc?.catId===id){activeLoc=null;showLocView(false);}
+  renderTree();render360List();saveDB();
+}
+function deleteLoc(catId,locId){
+  if(!confirm('Supprimer ce lieu ?'))return;
+  const cat=getCat(catId);if(!cat)return;
+  const loc=getLoc(catId,locId);
+  loc?.spheres.forEach(s=>{const i=spheres360.findIndex(x=>x.id===s.id);if(i>=0){if(spheres360[i].marker)map.removeLayer(spheres360[i].marker);spheres360.splice(i,1);}});
+  cat.children.splice(cat.children.findIndex(l=>l.id===locId),1);
+  if(activeLoc?.catId===catId&&activeLoc?.locId===locId){activeLoc=null;showLocView(false);}
+  renderTree();render360List();saveDB();
+}
+
+/* ── Arbre ── */
+const openCats = new Set();
+function renderTree(){
+  const body=document.getElementById('tree-body');
+  body.innerHTML='';
+  if(!DB.cats.length){
+    body.innerHTML='<div style="padding:20px 10px;text-align:center;color:var(--text-dim);font-size:11px;line-height:1.7;opacity:.6">Crée ta première<br>catégorie pour commencer</div>';
+    document.getElementById('btn-add-loc').disabled=true;
+    return;
+  }
+
+  DB.cats.forEach(cat=>{
+    const node=document.createElement('div');node.className='cat-node';
+    const isOpen=openCats.has(cat.id);
+    node.innerHTML=`
+      <div class="cat-header" data-cid="${cat.id}">
+        <span class="cat-arrow ${isOpen?'open':''}">▶</span>
+        <span class="cat-icon">${cat.icon}</span>
+        <span class="cat-name">${esc(cat.name)}</span>
+        <span class="cat-count">${cat.children.length}</span>
+        <span class="cat-actions">
+          <button class="tree-action" title="Ajouter un lieu" onclick="event.stopPropagation();openAddLoc(${cat.id})">＋</button>
+          <button class="tree-action" title="Supprimer" onclick="event.stopPropagation();deleteCat(${cat.id})">✕</button>
+        </span>
+      </div>
+      <div class="cat-children ${isOpen?'open':''}" id="cc-${cat.id}"></div>`;
+    const header=node.querySelector('.cat-header');
+    header.addEventListener('click',()=>{
+      if(openCats.has(cat.id))openCats.delete(cat.id);else openCats.add(cat.id);
+      renderTree();
+    });
+    body.appendChild(node);
+    const cc=node.querySelector('.cat-children');
+    cat.children.forEach(loc=>{
+      const isActive=activeLoc?.catId===cat.id&&activeLoc?.locId===loc.id;
+      const li=document.createElement('div');
+      li.className='loc-item'+(isActive?' active':'');
+      li.innerHTML=`
+        <span class="loc-dot"></span>
+        <span class="loc-name">${esc(loc.name)}</span>
+        <span class="loc-pcount">${loc.date?fmtDate(loc.date,true)+' · ':''}${loc.photos.length?loc.photos.length+'📷 ':''}${loc.spheres.length?loc.spheres.length+'◉':''}</span>
+        <span class="loc-actions">
+          <button class="tree-action" title="Supprimer" onclick="event.stopPropagation();deleteLoc(${cat.id},${loc.id})">✕</button>
+        </span>`;
+      li.addEventListener('click',()=>selectLoc(cat.id,loc.id));
+      cc.appendChild(li);
+    });
+  });
+  document.getElementById('btn-add-loc').disabled=DB.cats.length===0;
+}
+
+/* ── Sélectionner un lieu ── */
+function selectLoc(catId,locId){
+  activeLoc={catId,locId};
+  openCats.add(catId);
+  renderTree();
+  const cat=getCat(catId),loc=getLoc(catId,locId);
+  if(!cat||!loc)return;
+  // Breadcrumb
+  document.getElementById('loc-breadcrumb').innerHTML=`${cat.icon} ${esc(cat.name)} <span>›</span>`;
+  document.getElementById('loc-title').textContent=loc.name;
+  document.getElementById('loc-date-display').textContent=loc.date?'📅 '+fmtDate(loc.date):'';
+  renderLocTags(loc);
+  // Champs éditables
+  document.getElementById('edit-name').value=loc.name;
+  document.getElementById('edit-date').value=loc.date||'';
+  document.getElementById('edit-tags').value=loc.tags.join(', ');
+  document.getElementById('loc-desc').value=loc.desc||'';
+  renderGallery(loc);
+  renderLoc360(loc);
+  showLocView(true);
+  // Onglets : en lecture seule, on masque ceux qui sont vides
+  const hasP=loc.photos.length>0, hasD=!!loc.desc, has360=loc.spheres.length>0;
+  document.querySelector('[data-ltab=gallery]').style.display=(READONLY&&!hasP)?'none':'';
+  document.querySelector('[data-ltab=text]').style.display=(READONLY&&!hasD)?'none':'';
+  document.querySelector('[data-ltab="360"]').style.display=(READONLY&&!has360)?'none':'';
+  switchLocTab((hasP||!READONLY)?'gallery':(has360?'360':'text'));
+}
+
+function renderLocTags(loc){
+  const el=document.getElementById('loc-tags-display');
+  el.innerHTML=loc.tags.map(t=>`<span class="loc-tag">${esc(t)}</span>`).join('');
+}
+
+function showLocView(on){
+  document.getElementById('portfolio-empty').style.display=on?'none':'';
+  const lv=document.getElementById('loc-view');
+  lv.style.display=on?'flex':'none';
+}
+
+/* ── Tabs lieu ── */
+document.querySelectorAll('.loc-tab').forEach(t=>{
+  t.addEventListener('click',()=>switchLocTab(t.dataset.ltab));
+});
+function switchLocTab(tab){
+  document.querySelectorAll('.loc-tab').forEach(x=>x.classList.toggle('active',x.dataset.ltab===tab));
+  document.querySelectorAll('.loc-tab-panel').forEach(x=>x.classList.toggle('active',x.id==='ltab-'+tab));
+}
+
+/* ── Auto-save champs texte ── */
+['edit-name','edit-date','edit-tags','loc-desc'].forEach(id=>{
+  document.getElementById(id).addEventListener('input',saveCurrentLoc);
+});
+function saveCurrentLoc(){
+  const loc=getCurrentLoc();if(!loc)return;
+  loc.name=document.getElementById('edit-name').value.trim()||loc.name;
+  loc.date=document.getElementById('edit-date').value;
+  loc.tags=document.getElementById('edit-tags').value.split(',').map(t=>t.trim()).filter(Boolean);
+  loc.desc=document.getElementById('loc-desc').value;
+  document.getElementById('loc-title').textContent=loc.name;
+  renderLocTags(loc);renderTree();saveDB();
+}
+
+/* ════════════════════════════════════════════
+   GALERIE PHOTOS
+════════════════════════════════════════════ */
+async function addPhotosToLoc(files, loc){
+  const imgs=Array.from(files).filter(f=>f.type.startsWith('image/'));
+  if(!imgs.length)return;
+  toast('⏳ Chargement…');
+  for(const f of imgs){
+    const b64=await fileToB64(f);
+    const thumb=await mkThumb(b64,160,110);
+    loc.photos.push({id:DB.uid++,url:b64,thumb,name:f.name});
+  }
+  renderGallery(loc);renderTree();saveDB();
+  toast(`✅ ${imgs.length} photo(s) ajoutée(s)`);
+}
+
+function renderGallery(loc){
+  const grid=document.getElementById('gallery-grid');
+  grid.innerHTML='';
+  lbImages=loc.photos.map(p=>p.url);
+  loc.photos.forEach((p,i)=>{
+    const card=document.createElement('div');card.className='gallery-card';
+    card.innerHTML=`<img src="${p.thumb}" loading="lazy" alt=""><button class="gc-del" title="Supprimer">✕</button>`;
+    card.querySelector('img').addEventListener('click',()=>openLB(i));
+    card.querySelector('.gc-del').addEventListener('click',e=>{
+      e.stopPropagation();
+      URL.revokeObjectURL(p.url);
+      loc.photos.splice(i,1);
+      renderGallery(loc);renderTree();
+    });
+    grid.appendChild(card);
+  });
+}
+
+// Upload galerie
+document.getElementById('fi-gallery').addEventListener('change',e=>{
+  const loc=getCurrentLoc();if(loc)addPhotosToLoc(e.target.files,loc);e.target.value='';
+});
+const gdrop=document.getElementById('gallery-drop');
+gdrop.addEventListener('dragover',e=>{e.preventDefault();gdrop.classList.add('drag');});
+gdrop.addEventListener('dragleave',()=>gdrop.classList.remove('drag'));
+gdrop.addEventListener('drop',e=>{
+  e.preventDefault();gdrop.classList.remove('drag');
+  const loc=getCurrentLoc();if(loc)addPhotosToLoc(e.dataTransfer.files,loc);
+});
+gdrop.addEventListener('click',()=>document.getElementById('fi-gallery').click());
+
+/* ════════════════════════════════════════════
+   LIGHTBOX
+════════════════════════════════════════════ */
+function openLB(i){lbIndex=i;document.getElementById('lightbox').classList.add('on');updateLB();}
+function closeLB(){document.getElementById('lightbox').classList.remove('on');}
+function lbNav(d){lbIndex=(lbIndex+d+lbImages.length)%lbImages.length;updateLB();}
+function updateLB(){
+  document.getElementById('lb-img').src=lbImages[lbIndex];
+  document.getElementById('lb-counter').textContent=`${lbIndex+1} / ${lbImages.length}`;
+}
+document.getElementById('lightbox').addEventListener('click',e=>{if(e.target===e.currentTarget)closeLB();});
+document.addEventListener('keydown',e=>{
+  if(!document.getElementById('lightbox').classList.contains('on'))return;
+  if(e.key==='ArrowLeft')lbNav(-1);
+  if(e.key==='ArrowRight')lbNav(1);
+  if(e.key==='Escape')closeLB();
+});
+
+/* ════════════════════════════════════════════
+   PHOTOSPHÈRES 360°
+════════════════════════════════════════════ */
+// Liste globale (pour visionneuse)
+const spheres360=[]; // {id, url, thumb, name, locName, lat, lng, marker}
+let active360Id=null;
+
+async function add360(files, loc=null){
+  const imgs=Array.from(files).filter(f=>f.type.startsWith('image/'));
+  for(const f of imgs){
+    const url=URL.createObjectURL(f);
+    const thumb=await mkThumb(url,92,60);
+    let lat=null,lng=null;
+    try{const ex=await exifr.parse(f,{gps:true});if(ex?.latitude!=null){lat=ex.latitude;lng=ex.longitude;}}catch(e){}
+    const locName=loc?loc.name:'';
+    const s={id:DB.uid++,url,thumb,name:f.name,locName,lat,lng,marker:null};
+    spheres360.push(s);
+    if(loc){loc.spheres.push(s);renderLoc360(loc);renderTree();}
+    if(lat!=null)addSphereMarker(s);
+  }
+  render360List();
+  toast(`✅ ${imgs.length} photosphère(s) ajoutée(s)`);
+}
+
+function remove360(id){
+  const idx=spheres360.findIndex(s=>s.id===id);
+  if(idx<0)return;
+  const s=spheres360[idx];
+  if(s.marker)map.removeLayer(s.marker);
+  URL.revokeObjectURL(s.url);
+  spheres360.splice(idx,1);
+  if(active360Id===id){
+    active360Id=null;
+    clearViewer();
+  }
+  render360List();
+}
+
+function renderLoc360(loc){
+  const el=document.getElementById('loc-360-strip');
+  el.innerHTML='';
+  el.style.display=loc.spheres.length>1?'flex':'none';
+  loc.spheres.forEach(s=>{
+    const d=document.createElement('div');
+    d.className='strip-item';d.dataset.id=s.id;
+    d.innerHTML=`<img src="${s.thumb}" alt=""><span>${esc(s.name)}</span>`;
+    d.addEventListener('click',()=>openSphereInPlace(s));
+    el.appendChild(d);
+  });
+  if(loc.spheres.length)openSphereInPlace(loc.spheres[0]);else clearViewer();
+}
+
+function openSphereInPlace(s){
+  active360Id=s.id;
+  document.querySelectorAll('.strip-item').forEach(e=>e.classList.toggle('active',parseInt(e.dataset.id)===s.id));
+  loadSphere(s);
+}
+
+function removeLoc360(catId,locId,sphereId){
+  const loc=getLoc(catId,locId);if(!loc)return;
+  loc.spheres=loc.spheres.filter(s=>s.id!==sphereId);
+  remove360(sphereId);
+  renderLoc360(loc);renderTree();
+}
+
+function render360List(){
+  const list=document.getElementById('p360-list');
+  document.getElementById('p360-empty').style.display=spheres360.length?'none':'';
+  list.innerHTML='';
+  if(!spheres360.length){list.appendChild(document.getElementById('p360-empty'));return;}
+  spheres360.forEach(s=>{
+    const item=document.createElement('div');
+    item.className='p360-item'+(s.id===active360Id?' active':'');
+    item.innerHTML=`
+      <img class="p360-thumb" src="${s.thumb}" alt="">
+      <div class="p360-info">
+        <div class="p360-name">${esc(s.name)}</div>
+        <div class="p360-loc">${s.locName?'📍 '+esc(s.locName):'◉ 360°'}</div>
+      </div>
+      <button class="p360-del">✕</button>`;
+    item.addEventListener('click',e=>{if(!e.target.classList.contains('p360-del'))select360(s.id);});
+    item.querySelector('.p360-del').addEventListener('click',e=>{e.stopPropagation();remove360(s.id);});
+    list.appendChild(item);
+  });
+  fitMap();
+}
+
+function select360(id){
+  active360Id=id;
+  const s=spheres360.find(x=>x.id===id);if(!s)return;
+  document.querySelectorAll('.p360-item').forEach(el=>el.classList.toggle('active',parseInt(el.querySelector('.p360-del')?.previousElementSibling?.previousElementSibling?.textContent)===id));
+  render360List();
+  updateSphereMarkers();
+  if(s.lat!=null){map.setView([s.lat,s.lng],Math.max(map.getZoom(),14));s.marker?.openPopup();}
+  loadSphere(s);
+}
+
+// File inputs 360
+document.getElementById('fi-360').addEventListener('change',e=>{add360(e.target.files,getCurrentLoc());e.target.value='';});
+document.getElementById('fi-360b').addEventListener('change',e=>{add360(e.target.files,null);e.target.value='';});
+document.getElementById('fi-loc360').addEventListener('change',e=>{
+  const loc=getCurrentLoc();if(loc)add360(e.target.files,loc);e.target.value='';
+});
+
+/* ════════════════════════════════════════════
+   THREE.JS VIEWER
+════════════════════════════════════════════ */
+let renderer,scene,cam,sph3d;
+let drag=false,moved=false,pm={x:0,y:0},dm={x:0,y:0};
+let sphr={theta:0,phi:Math.PI/2},fov=75,hudTO;
+const cvWrap=document.getElementById('viewer-cv');
+
+function initThree(){
+  renderer=new THREE.WebGLRenderer({antialias:true});
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.setSize(cvWrap.clientWidth,cvWrap.clientHeight);
+  cvWrap.appendChild(renderer.domElement);
+  scene=new THREE.Scene();
+  cam=new THREE.PerspectiveCamera(fov,cvWrap.clientWidth/cvWrap.clientHeight,.1,2000);
+  cam.position.set(0,0,.01);
+  const g=new THREE.SphereGeometry(500,72,40);g.scale(-1,1,1);
+  sph3d=new THREE.Mesh(g,new THREE.MeshBasicMaterial({map:null}));
+  scene.add(sph3d);
+  const el=renderer.domElement;
+  el.addEventListener('mousedown',e=>{drag=true;moved=false;dm={x:e.clientX,y:e.clientY};pm={x:e.clientX,y:e.clientY};});
+  el.addEventListener('mousemove',e=>{
+    if(!drag)return;
+    if(Math.abs(e.clientX-dm.x)>3||Math.abs(e.clientY-dm.y)>3)moved=true;
+    sphr.theta-=(e.clientX-pm.x)*.004;sphr.phi-=(e.clientY-pm.y)*.004;
+    sphr.phi=Math.max(.06,Math.min(Math.PI-.06,sphr.phi));pm={x:e.clientX,y:e.clientY};
+  });
+  el.addEventListener('mouseup',()=>{drag=false;});
+  el.addEventListener('mouseleave',()=>{drag=false;});
+  el.addEventListener('wheel',e=>{e.preventDefault();fov=Math.max(20,Math.min(120,fov+e.deltaY*.04));cam.fov=fov;cam.updateProjectionMatrix();},{passive:false});
+  let ltd=0,lt=null;
+  el.addEventListener('touchstart',e=>{
+    if(e.touches.length===1){drag=true;lt={x:e.touches[0].clientX,y:e.touches[0].clientY};}
+    else ltd=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+    e.preventDefault();
+  },{passive:false});
+  el.addEventListener('touchmove',e=>{
+    if(e.touches.length===1&&drag&&lt){
+      sphr.theta-=(e.touches[0].clientX-lt.x)*.004;sphr.phi-=(e.touches[0].clientY-lt.y)*.004;
+      sphr.phi=Math.max(.06,Math.min(Math.PI-.06,sphr.phi));lt={x:e.touches[0].clientX,y:e.touches[0].clientY};
+    }else if(e.touches.length===2){
+      const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+      fov=Math.max(20,Math.min(120,fov+(ltd-d)*.1));cam.fov=fov;cam.updateProjectionMatrix();ltd=d;
+    }
+    e.preventDefault();
+  },{passive:false});
+  el.addEventListener('touchend',()=>{drag=false;lt=null;});
+  new ResizeObserver(()=>{
+    const w=cvWrap.clientWidth,h=cvWrap.clientHeight;
+    if(!w||!h)return;
+    renderer.setSize(w,h);cam.aspect=w/h;cam.updateProjectionMatrix();
+  }).observe(cvWrap);
+  requestAnimationFrame(function loop(){
+    requestAnimationFrame(loop);
+    if(!sph3d?.material?.map||!cvWrap.clientWidth)return;
+    cam.lookAt(Math.sin(sphr.phi)*Math.cos(sphr.theta),Math.cos(sphr.phi),Math.sin(sphr.phi)*Math.sin(sphr.theta));
+    renderer.render(scene,cam);
+  });
+}
+
+function loadSphere(s){
+  const ldr=document.getElementById('viewer-loader');ldr.classList.add('on');
+  document.getElementById('viewer-empty').style.display='none';
+  new THREE.TextureLoader().load(s.url,tex=>{
+    if(sph3d.material.map)sph3d.material.map.dispose();
+    sph3d.material.map=tex;sph3d.material.needsUpdate=true;
+    sphr={theta:0,phi:Math.PI/2};fov=75;cam.fov=75;cam.updateProjectionMatrix();
+    ldr.classList.remove('on');
+    document.getElementById('vi-name').textContent=s.name;
+    document.getElementById('vi-loc').textContent=s.locName||'◉ 360°';
+    document.getElementById('viewer-info').classList.add('on');
+    document.getElementById('vctrl').classList.add('on');
+    const h=document.getElementById('vhud');h.classList.add('on');
+    clearTimeout(hudTO);hudTO=setTimeout(()=>h.classList.remove('on'),4000);
+  },undefined,()=>{ldr.classList.remove('on');toast('❌ Impossible de charger');});
+}
+
+function clearViewer(){
+  if(sph3d?.material?.map){sph3d.material.map.dispose();sph3d.material.map=null;sph3d.material.needsUpdate=true;}
+  document.getElementById('viewer-empty').style.display='';
+  document.getElementById('viewer-info').classList.remove('on');
+  document.getElementById('vctrl').classList.remove('on');
+}
+
+document.getElementById('vc-reset').onclick=()=>{sphr={theta:0,phi:Math.PI/2};fov=75;cam.fov=75;cam.updateProjectionMatrix();};
+document.getElementById('vc-fs').onclick=()=>{
+  if(!document.fullscreenElement)document.getElementById('viewer-wrap').requestFullscreen();
+  else document.exitFullscreen();
+};
+
+/* ════════════════════════════════════════════
+   CARTE LEAFLET
+════════════════════════════════════════════ */
+const map=L.map('map',{center:[46.5,2.5],zoom:5,zoomControl:true,attributionControl:false});
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+L.control.attribution({prefix:'© <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>'}).addTo(map);
+
+function mkMapIcon(active){
+  return L.divIcon({className:'',
+    html:`<div style="width:${active?16:11}px;height:${active?16:11}px;background:${active?'#b84a1a':'#555548'};border:2px solid ${active?'#e0a070':'#2a2a2a'};border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,.7)"></div>`,
+    iconSize:[active?16:11,active?16:11],iconAnchor:[active?8:5.5,active?8:5.5]});
+}
+function addSphereMarker(s){
+  if(s.lat==null)return;
+  const m=L.marker([s.lat,s.lng],{icon:mkMapIcon(false)}).addTo(map);
+  m.bindPopup(`<b>${s.name}</b>${s.locName?'<br>'+s.locName:''}`);
+  m.on('click',()=>{showPage('360');select360(s.id);});
+  s.marker=m;
+}
+function updateSphereMarkers(){spheres360.forEach(s=>{if(s.marker)s.marker.setIcon(mkMapIcon(s.id===active360Id));});}
+function fitMap(){
+  const pts=spheres360.filter(s=>s.lat!=null).map(s=>[s.lat,s.lng]);
+  if(!pts.length)return;
+  if(pts.length===1){map.setView(pts[0],14);return;}
+  map.fitBounds(L.latLngBounds(pts),{padding:[16,16],maxZoom:15});
+}
+
+/* ════════════════════════════════════════════
+   DRAG & DROP GLOBAL
+════════════════════════════════════════════ */
+let dc=0;
+document.addEventListener('dragenter',e=>{if(READONLY)return;e.preventDefault();dc++;document.getElementById('gdrop').classList.add('on');});
+document.addEventListener('dragleave',()=>{dc--;if(dc<=0){dc=0;document.getElementById('gdrop').classList.remove('on');}});
+document.addEventListener('dragover',e=>e.preventDefault());
+document.addEventListener('drop',e=>{
+  e.preventDefault();dc=0;document.getElementById('gdrop').classList.remove('on');
+  if(READONLY)return;
+  // ignorer si drag sur gallery-drop ou gallery (géré ailleurs)
+  if(e.target.closest('#gallery-drop')||e.target.closest('#ltab-gallery'))return;
+  const files=Array.from(e.dataTransfer.files).filter(f=>f.type.startsWith('image/'));
+  if(!files.length)return;
+  // Déterminer où aller selon la page active
+  const p=document.querySelector('.page.active')?.id;
+  if(p==='page-360'){add360(e.dataTransfer.files,null);}
+  else{
+    const loc=getCurrentLoc();
+    if(loc)addPhotosToLoc(e.dataTransfer.files,loc);
+    else toast('⚠ Sélectionne un lieu d\'abord');
+  }
+});
+
+/* ════════════════════════════════════════════
+   UTILS
+════════════════════════════════════════════ */
+function mkThumb(url,w=104,h=68){
+  return new Promise(res=>{
+    const img=new Image();
+    img.onload=()=>{
+      const c=document.createElement('canvas');c.width=w;c.height=h;
+      const ctx=c.getContext('2d');
+      const r=img.width/img.height,ratio=w/h;
+      let sw=img.width,sh=img.height,sx=0,sy=0;
+      if(r>ratio){sw=img.height*ratio;sx=(img.width-sw)/2;}
+      else{sh=img.width/ratio;sy=(img.height-sh)/2;}
+      ctx.drawImage(img,sx,sy,sw,sh,0,0,w,h);
+      res(c.toDataURL('image/jpeg',.75));
+    };
+    img.onerror=()=>res('');img.src=url;
+  });
+}
+
+let tTO;
+function toast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('on');
+  clearTimeout(tTO);tTO=setTimeout(()=>t.classList.remove('on'),3000);
+}
+const MOIS=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+function fmtDate(d,short){
+  const m=/^(\d{4})-(\d{2})(?:-(\d{2}))?$/.exec(d||'');
+  if(!m)return d||'';
+  const mois=MOIS[parseInt(m[2])-1]||'';
+  const ABR=['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
+  const label=short?ABR[parseInt(m[2])-1]:mois;
+  if(m[3]&&!short)return parseInt(m[3])+' '+mois.toLowerCase()+' '+m[1];
+  return label+' '+m[1];
+}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+/* ════════════════════════════════════════════
+   PERSISTANCE LOCALSTORAGE
+════════════════════════════════════════════ */
+const LS_KEY = 'urbex360_v1';
+
+function fileToB64(file){
+  return new Promise((res,rej)=>{
+    const r=new FileReader();
+    r.onload=()=>res(r.result);
+    r.onerror=rej;
+    r.readAsDataURL(file);
+  });
+}
+
+function saveDB(){
+  if(READONLY)return;
+  const data={
+    uid:DB.uid,
+    cats:DB.cats.map(c=>({
+      id:c.id, name:c.name, icon:c.icon,
+      children:c.children.map(l=>({
+        id:l.id, catId:l.catId, name:l.name, date:l.date, tags:l.tags, desc:l.desc,
+        photos:l.photos.map(p=>({id:p.id,url:p.url,thumb:p.thumb,name:p.name})),
+        sphereIds:l.spheres.map(s=>s.id)
+      }))
+    })),
+    spheres:spheres360.map(s=>({id:s.id,url:s.url,thumb:s.thumb,name:s.name,locName:s.locName,lat:s.lat,lng:s.lng}))
+  };
+  try{
+    localStorage.setItem(LS_KEY, JSON.stringify(data));
+    showSaveInd();
+  }catch(e){
+    if(e.name==='QuotaExceededError')
+      toast('⚠ Stockage plein ! Supprime des photos pour libérer de lespace.');
+    else
+      toast('⚠ Erreur de sauvegarde : '+e.message);
+  }
+}
+
+function loadDB(){
+  const raw=localStorage.getItem(LS_KEY);
+  if(!raw)return;
+  try{
+    const data=JSON.parse(raw);
+    DB.uid=data.uid||0;
+    // Reconstruire spheres360
+    spheres360.length=0;
+    (data.spheres||[]).forEach(s=>{
+      spheres360.push({id:s.id,url:s.url,thumb:s.thumb,name:s.name,locName:s.locName,lat:s.lat,lng:s.lng,marker:null});
+    });
+    // Reconstruire cats
+    DB.cats=(data.cats||[]).map(c=>({
+      id:c.id, name:c.name, icon:c.icon,
+      children:(c.children||[]).map(l=>{
+        const sph=(l.sphereIds||[]).map(sid=>spheres360.find(s=>s.id===sid)).filter(Boolean);
+        return {id:l.id,catId:l.catId,name:l.name,date:l.date||'',tags:l.tags||[],desc:l.desc||'',photos:l.photos||[],spheres:sph};
+      })
+    }));
+    // Marqueurs carte
+    spheres360.forEach(s=>{if(s.lat!=null)addSphereMarker(s);});
+    renderTree();
+    render360List();
+    fitMap();
+  }catch(e){
+    console.error('Erreur chargement:',e);
+    toast('⚠ Erreur au chargement');
+  }
+}
+
+function showSaveInd(){
+  const el=document.getElementById('save-ind');
+  if(!el)return;
+  el.style.opacity='1';
+  clearTimeout(el._t);
+  el._t=setTimeout(()=>el.style.opacity='0',1800);
+}
+
+function clearAllData(){
+  if(!confirm('Effacer TOUTES les données sauvegardées ? Irréversible.'))return;
+  localStorage.removeItem(LS_KEY);
+  DB.cats=[];DB.uid=0;
+  spheres360.length=0;active360Id=null;activeLoc=null;
+  map.eachLayer(l=>{if(l instanceof L.Marker)map.removeLayer(l);});
+  clearViewer();showLocView(false);
+  renderTree();render360List();
+  toast('🗑 Données effacées');
+}
+
+/* ════════════════════════════════════════════
+   INIT
+════════════════════════════════════════════ */
+/* ════════════════════════════════════════════
+   DONNÉES DU SITE  (à modifier ici)
+   - date : "AAAA-MM"
+   - lat / lng : mets des coordonnées (ex: 49.30 / 5.90) pour afficher le lieu sur la carte
+   - desc : texte de description ; tags : ["abandonné", "industrie"]
+════════════════════════════════════════════ */
+const SITE_DATA = [
+ {
+  "name": "Usine",
+  "icon": "🏭",
+  "places": [
+   {
+    "name": "Usine HFX",
+    "date": "2026-07",
+    "tags": [],
+    "desc": "",
+    "lat": null,
+    "lng": null,
+    "spheres": [
+     {
+      "name": "Vue 1",
+      "file": "photos/usine-hfx/vue-1.jpg",
+      "thumb": "photos/usine-hfx/thumbs/vue-1.jpg"
+     },
+     {
+      "name": "Vue 2",
+      "file": "photos/usine-hfx/vue-2.jpg",
+      "thumb": "photos/usine-hfx/thumbs/vue-2.jpg"
+     },
+     {
+      "name": "Vue 3",
+      "file": "photos/usine-hfx/vue-3.jpg",
+      "thumb": "photos/usine-hfx/thumbs/vue-3.jpg"
+     },
+     {
+      "name": "Vue 4",
+      "file": "photos/usine-hfx/vue-4.jpg",
+      "thumb": "photos/usine-hfx/thumbs/vue-4.jpg"
+     },
+     {
+      "name": "Vue 5",
+      "file": "photos/usine-hfx/vue-5.jpg",
+      "thumb": "photos/usine-hfx/thumbs/vue-5.jpg"
+     }
+    ]
+   },
+   {
+    "name": "Cimenterie",
+    "date": "2026-09",
+    "tags": [],
+    "desc": "",
+    "lat": null,
+    "lng": null,
+    "spheres": [
+     {
+      "name": "Vue 1",
+      "file": "photos/cimentrie/vue-1.jpg",
+      "thumb": "photos/cimentrie/thumbs/vue-1.jpg"
+     },
+     {
+      "name": "Vue 2",
+      "file": "photos/cimentrie/vue-2.jpg",
+      "thumb": "photos/cimentrie/thumbs/vue-2.jpg"
+     },
+     {
+      "name": "Vue 3",
+      "file": "photos/cimentrie/vue-3.jpg",
+      "thumb": "photos/cimentrie/thumbs/vue-3.jpg"
+     },
+     {
+      "name": "Vue 4",
+      "file": "photos/cimentrie/vue-4.jpg",
+      "thumb": "photos/cimentrie/thumbs/vue-4.jpg"
+     },
+     {
+      "name": "Vue 5",
+      "file": "photos/cimentrie/vue-5.jpg",
+      "thumb": "photos/cimentrie/thumbs/vue-5.jpg"
+     },
+     {
+      "name": "Vue 6",
+      "file": "photos/cimentrie/vue-6.jpg",
+      "thumb": "photos/cimentrie/thumbs/vue-6.jpg"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "name": "Mine",
+  "icon": "⛏",
+  "places": [
+   {
+    "name": "Mine de B",
+    "date": "2026-08",
+    "tags": [],
+    "desc": "",
+    "lat": null,
+    "lng": null,
+    "spheres": [
+     {
+      "name": "Vue 1",
+      "file": "photos/mine-de-b/vue-1.jpg",
+      "thumb": "photos/mine-de-b/thumbs/vue-1.jpg"
+     }
+    ]
+   },
+   {
+    "name": "Mine Eau",
+    "date": "2026-08",
+    "tags": [],
+    "desc": "",
+    "lat": null,
+    "lng": null,
+    "spheres": [
+     {
+      "name": "Vue 1",
+      "file": "photos/mine-eau/vue-1.jpg",
+      "thumb": "photos/mine-eau/thumbs/vue-1.jpg"
+     },
+     {
+      "name": "Vue 2",
+      "file": "photos/mine-eau/vue-2.jpg",
+      "thumb": "photos/mine-eau/thumbs/vue-2.jpg"
+     },
+     {
+      "name": "Vue 3",
+      "file": "photos/mine-eau/vue-3.jpg",
+      "thumb": "photos/mine-eau/thumbs/vue-3.jpg"
+     },
+     {
+      "name": "Vue 4",
+      "file": "photos/mine-eau/vue-4.jpg",
+      "thumb": "photos/mine-eau/thumbs/vue-4.jpg"
+     },
+     {
+      "name": "Vue 5",
+      "file": "photos/mine-eau/vue-5.jpg",
+      "thumb": "photos/mine-eau/thumbs/vue-5.jpg"
+     }
+    ]
+   },
+   {
+    "name": "Carreau S",
+    "date": "2026-08",
+    "tags": [],
+    "desc": "",
+    "lat": null,
+    "lng": null,
+    "spheres": [
+     {
+      "name": "Vue 1",
+      "file": "photos/carreau-s/vue-1.jpg",
+      "thumb": "photos/carreau-s/thumbs/vue-1.jpg"
+     },
+     {
+      "name": "Vue 2",
+      "file": "photos/carreau-s/vue-2.jpg",
+      "thumb": "photos/carreau-s/thumbs/vue-2.jpg"
+     },
+     {
+      "name": "Vue 3",
+      "file": "photos/carreau-s/vue-3.jpg",
+      "thumb": "photos/carreau-s/thumbs/vue-3.jpg"
+     },
+     {
+      "name": "Vue 4",
+      "file": "photos/carreau-s/vue-4.jpg",
+      "thumb": "photos/carreau-s/thumbs/vue-4.jpg"
+     }
+    ]
+   },
+   {
+    "name": "Mine M",
+    "date": "2026-10",
+    "tags": [],
+    "desc": "",
+    "lat": null,
+    "lng": null,
+    "spheres": [
+     {
+      "name": "Vue 1",
+      "file": "photos/mine-m/vue-1.jpg",
+      "thumb": "photos/mine-m/thumbs/vue-1.jpg"
+     },
+     {
+      "name": "Vue 2",
+      "file": "photos/mine-m/vue-2.jpg",
+      "thumb": "photos/mine-m/thumbs/vue-2.jpg"
+     },
+     {
+      "name": "Vue 3",
+      "file": "photos/mine-m/vue-3.jpg",
+      "thumb": "photos/mine-m/thumbs/vue-3.jpg"
+     },
+     {
+      "name": "Vue 4",
+      "file": "photos/mine-m/vue-4.jpg",
+      "thumb": "photos/mine-m/thumbs/vue-4.jpg"
+     },
+     {
+      "name": "Vue 5",
+      "file": "photos/mine-m/vue-5.jpg",
+      "thumb": "photos/mine-m/thumbs/vue-5.jpg"
+     },
+     {
+      "name": "Vue 6",
+      "file": "photos/mine-m/vue-6.jpg",
+      "thumb": "photos/mine-m/thumbs/vue-6.jpg"
+     },
+     {
+      "name": "Vue 7",
+      "file": "photos/mine-m/vue-7.jpg",
+      "thumb": "photos/mine-m/thumbs/vue-7.jpg"
+     },
+     {
+      "name": "Vue 8",
+      "file": "photos/mine-m/vue-8.jpg",
+      "thumb": "photos/mine-m/thumbs/vue-8.jpg"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "name": "Bunker",
+  "icon": "🛡",
+  "places": [
+   {
+    "name": "Bunker R",
+    "date": "2026-08",
+    "tags": [],
+    "desc": "",
+    "lat": null,
+    "lng": null,
+    "spheres": [
+     {
+      "name": "Vue 1",
+      "file": "photos/bunker-r/vue-1.jpg",
+      "thumb": "photos/bunker-r/thumbs/vue-1.jpg"
+     },
+     {
+      "name": "Vue 2",
+      "file": "photos/bunker-r/vue-2.jpg",
+      "thumb": "photos/bunker-r/thumbs/vue-2.jpg"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "name": "Infrastructure",
+  "icon": "💧",
+  "places": [
+   {
+    "name": "Château d'eau K",
+    "date": "2026-10",
+    "tags": [],
+    "desc": "",
+    "lat": null,
+    "lng": null,
+    "spheres": [
+     {
+      "name": "Vue 1",
+      "file": "photos/chateau-d-eau-k/vue-1.jpg",
+      "thumb": "photos/chateau-d-eau-k/thumbs/vue-1.jpg"
+     },
+     {
+      "name": "Vue 2",
+      "file": "photos/chateau-d-eau-k/vue-2.jpg",
+      "thumb": "photos/chateau-d-eau-k/thumbs/vue-2.jpg"
+     },
+     {
+      "name": "Vue 3",
+      "file": "photos/chateau-d-eau-k/vue-3.jpg",
+      "thumb": "photos/chateau-d-eau-k/thumbs/vue-3.jpg"
+     },
+     {
+      "name": "Vue 4",
+      "file": "photos/chateau-d-eau-k/vue-4.jpg",
+      "thumb": "photos/chateau-d-eau-k/thumbs/vue-4.jpg"
+     },
+     {
+      "name": "Vue 5",
+      "file": "photos/chateau-d-eau-k/vue-5.jpg",
+      "thumb": "photos/chateau-d-eau-k/thumbs/vue-5.jpg"
+     }
+    ]
+   }
+  ]
+ }
+];
+
+function loadSiteData(){
+  DB.cats=[];DB.uid=0;spheres360.length=0;
+  SITE_DATA.forEach(c=>{
+    const cat={id:DB.uid++,name:c.name,icon:c.icon,children:[]};
+    c.places.forEach(p=>{
+      const loc={id:DB.uid++,catId:cat.id,name:p.name,date:p.date||'',tags:p.tags||[],desc:p.desc||'',photos:[],spheres:[]};
+      (p.photos||[]).forEach(ph=>loc.photos.push({id:DB.uid++,url:ph.file,thumb:ph.thumb,name:ph.name||''}));
+      p.spheres.forEach(s=>{
+        const sp={id:DB.uid++,url:s.file,thumb:s.thumb,name:s.name,locName:p.name,lat:p.lat??null,lng:p.lng??null,marker:null};
+        spheres360.push(sp);loc.spheres.push(sp);
+        if(sp.lat!=null)addSphereMarker(sp);
+      });
+      cat.children.push(loc);
+    });
+    DB.cats.push(cat);openCats.add(cat.id);
+  });
+  if(!spheres360.some(s=>s.lat!=null))document.body.classList.add('nomap');
+  renderTree();render360List();fitMap();
+  const c0=DB.cats[0];
+  if(c0&&c0.children[0])selectLoc(c0.id,c0.children[0].id);
+}
+
+initThree();
+if(READONLY){
+  document.body.classList.add('ro');
+  document.getElementById('loc-desc').readOnly=true;
+  loadSiteData();
+  setTimeout(()=>map.invalidateSize(),150);
+}else{
+  setTimeout(()=>{map.invalidateSize();loadDB();},150);
+}
+// Blocage du clic droit / glisser-déposer sur le site public
+if(READONLY){
+  document.addEventListener('contextmenu',e=>e.preventDefault());
+  document.addEventListener('dragstart',e=>e.preventDefault());
+  document.addEventListener('keydown',e=>{
+    if((e.ctrlKey||e.metaKey)&&['s','u','p'].includes(e.key.toLowerCase()))e.preventDefault();
+  });
+}
+</script>
+</body>
+</html>
